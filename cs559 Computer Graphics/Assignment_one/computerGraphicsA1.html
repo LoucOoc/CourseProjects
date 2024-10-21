@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title> 3D movable camera view of a 3D pyramid shapes</title>
+    </head>
+    <body>
+        Top View
+        <canvas id="myCanvasXY"></canvas>
+        Side View
+        <canvas id="myCanvasYZ"></canvas>
+        Front View
+        <canvas id="myCanvasXZ"></canvas>
+        <br/>
+        <canvas id="cameraView" width="800px" height="500px"></canvas>
+        <br/>
+        <p>Move in X direction</p>
+        <input id="Xinput" type="range" min="-50" max="50">
+        <br/>
+        <p>Move in Y direction</p>
+        <input id="Yinput" type="range" min="-50" max="50">
+        <br/>
+        <p>Move in Z direction</p>
+        <input id="Zinput" type="range" min="-50" max="50">
+        <br/>
+        <p>some Animation</p>
+        <canvas id = "someAnimation"></canvas>
+        <p>range</p>
+        <input id="speedControl" type="range" min="10" max="100">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/9.3.2/math.js"></script>
+        <script src="computerGraphicsA1.js" id="module"></script>
+    </body>
+</html>
