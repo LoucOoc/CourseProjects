@@ -1,3 +1,5 @@
+// Author:   Haoyu Wang
+// Email:    hwang2376@wisc.edu
 //<p>The swaying fishing rope is achieved by implementing XPBD to simulate physical movement, see This involves basic physics simulation of Verelet Integration and a bit of XPDB, see https://mmacklin.com/xpbd.pdf for more detail</p>
 
 function setup() {
