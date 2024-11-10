@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>3D World</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gl-matrix/2.8.1/gl-matrix-min.js"></script>
+</head>
+<body>
+    <canvas id="Canvas" width="800" height="800"></canvas>
+    
+    <p>Use the slider and press "WASD" to MOVE YOUR VIEW</p>
+    <input id="slider1" type="range" min="0" max="200" /> Move monster along curve
+    </br>
+    <input id="slider2" type="range" min="0" max="100" /> Move camera around scene
+    </br>
+    <input id="b" type="button"> drunk mode/shaking mode (click to start or stop)
+    </br>
+    <input id="s" type="button"> click to show or hide trajectory
+    </br>
+    <p>the blue, red, yellow, and black line is a result of Hermite-like cubic curve using only the first derivitive and second derivitive of two points</p>
+    <p>The monster's eyes will not be draw when it's facing backward to the camera</p>
+    <script src="A5.js" id="module"></script>
+    </body>
+</html>
