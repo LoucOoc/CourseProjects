@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>WebGL cube drawn with indexed vertex list</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gl-matrix/2.8.1/gl-matrix-min.js"></script>
+  </head>
+
+  <body>
+    <script id="vertexShader_1" type="x-shader/x-fragment">
+      attribute vec3 vPosition;
+      attribute vec3 vNormal;
+      attribute vec2 vTexCoord;
+      varying vec3 fPosition;
+      varying vec3 fNormal;
+      varying vec2 fTexCoord;
+      uniform mat4 uMV;
+      uniform mat4 uMVP;
+
+      void main(void) {
+        gl_Position = uMVP * vec4(vPosition, 1.0);
+        fPosition = (uMV * vec4(vPosition, 1.0)).xyz; // In camera coordinates
+        fNormal = vNormal;                            // In local coordinates
+        fTexCoord = vTexCoord;
+     }
+    </script>
+
+    <script id="fragmentShader_1" type="x-shader/x-fragment">
+      precision highp float;
+
+      varying vec3 fPosition;
+      varying vec3 fNormal;
+      varying vec2 fTexCoord;
+      
+      uniform mat4 uMV;
+      uniform mat3 uMVn;
+      
+      uniform sampler2D texSampler1;
+      uniform sampler2D texSampler_d_1; // Base color
+      uniform sampler2D texSampler_d_2; // Metallic
+      uniform sampler2D texSampler_d_3; // Normal map
+      uniform sampler2D texSampler_d_4; // Roughness
+      
+      uniform int type;
+      
+      const vec3 light2_direction = vec3(-1.0, 0.0, 0.0); 
+      const vec3 light2_color = vec3(1.0, 0.2, 0.1); 
+      
+      const vec3 lightV = vec3(0.0, -0.3, 1.0);
+      const float lightI = 1.0;
+      const float ambientC = 0.5;
+      const float diffuseC = 0.4;
+      const float specularC = 0.3;
+      const vec3 lightCol = vec3(0.75, 0.95, 0.85);
+      
+      // Blinn-Phong lighting model
+      vec2 blinnPhongDir(vec3 lightDir, vec3 n, float lightInt, float Ka,
+                        float Kd, float Ks, float shininess) {
+        vec3 s = normalize(lightDir);
+        vec3 v = normalize(-fPosition);
+        vec3 h = normalize(v + s);
+        float diffuse = Ka + Kd * lightInt * max(0.0, dot(n, s));
+        float specular = clamp(pow(max(0.0, dot(n, h)), shininess), 0.0, 1.0);
+        return vec2(diffuse, specular);
+      }
+      
+      void main(void) {
+        if (type == 1) {
+          vec3 texColor = texture2D(texSampler1, fTexCoord).xyz;
+          vec3 n = normalize(uMVn * fNormal);
+          
+          vec3 ColorS = vec3(0.0);
+          if (fPosition.y > -0.5) {
+              ColorS = blinnPhongDir(light2_direction, n, 0.0, 0.0, 0.0, specularC, 32.0).y * light2_color * 0.7;
+          }
+  
+          vec3 ColorAD = blinnPhongDir(lightV, n, lightI, ambientC, diffuseC, 0.0, 1.0).x * texColor;
+          gl_FragColor = vec4(ColorAD + ColorS, 1.0);
+        } else {
+          vec4 baseColor = texture2D(texSampler_d_1, fTexCoord);
+          float metallic = texture2D(texSampler_d_2, fTexCoord).r;
+          float roughness = clamp(texture2D(texSampler_d_4, fTexCoord).r, 0.05, 1.0); // Prevent extreme values
+  
+          float shine = mix(1.0, 128.0, pow(1.0 - roughness, 2.0)); // Adjust specular sharpness
+  
+          // Normal map (from tangent to world space)
+          vec3 normalMap = texture2D(texSampler_d_3, fTexCoord).rgb * 2.0 - 1.0;
+          vec3 normal = normalize(uMVn * normalMap);
+  
+          vec3 n = normalize(normal);
+  
+          // Diffuse and specular contributions
+          vec3 ColorS = blinnPhongDir(lightV, n, 0.0, 0.0, 0.0, specularC, shine).y * lightCol;
+          vec3 ColorAD = blinnPhongDir(lightV, n, lightI, ambientC, diffuseC, 0.0, 1.0).x * baseColor.rgb;
+  
+          // Apply metallic influence
+          vec3 F0 = mix(vec3(0.04), baseColor.rgb, metallic); // Fresnel factor
+          ColorS *= mix(F0, vec3(1.0), pow(1.0 - dot(n, lightV), 5.0)); // Fresnel adjustment
+  
+          // Reduce specular for rough surfaces
+          ColorS *= 1.0 - roughness;
+  
+          // Final output color
+          vec3 finalColor = ColorAD + ColorS;
+          gl_FragColor = vec4(finalColor, baseColor.a);
+        }
+      }
+            
+    </script>
+
+    <script  id="envmap-vertex-shader" type="x-shader/x-vertex">
+      attribute vec4 vPosition;
+      attribute vec3 vNormal;
+      
+      uniform mat4 u_projection;
+      uniform mat4 u_view;
+      uniform mat4 u_world;
+      
+      varying vec3 v_worldPosition;
+      varying vec3 v_worldNormal;
+      
+      void main() {
+        // Multiply the position by the matrix.
+        gl_Position = u_projection * u_view * u_world * vPosition;
+      
+        // send the view position to the fragment shader
+        v_worldPosition = (u_world * vPosition).xyz;
+      
+        // orient the normals and pass to the fragment shader
+        v_worldNormal = mat3(u_world) * vNormal;
+      }
+      </script>
+      <!-- fragment shader -->
+      <script  id="envmap-fragment-shader" type="x-shader/x-fragment">
+      precision highp float;
+      
+      // Passed in from the vertex shader.
+      varying vec3 v_worldPosition;
+      varying vec3 v_worldNormal;
+      
+      // The texture.
+      uniform samplerCube u_texture;
+      
+      // The position of the camera
+      uniform vec3 u_worldCameraPosition;
+      
+      void main() {
+        vec3 worldNormal = normalize(v_worldNormal);
+        vec3 eyeToSurfaceDir = normalize(v_worldPosition - u_worldCameraPosition);
+        vec3 direction = reflect(eyeToSurfaceDir,worldNormal);
+      
+        gl_FragColor = textureCube(u_texture, direction);
+      }
+      </script>
+      <script  id="skybox-vertex-shader" type="x-shader/x-vertex">
+      attribute vec4 vPosition;
+      varying vec4 v_position;
+      void main() {
+        v_position = vPosition;
+        gl_Position = vec4(vPosition.xy, 1, 1);
+      }
+      </script>
+      <script  id="skybox-fragment-shader" type="x-shader/x-fragment">
+      precision mediump float;
+      
+      uniform samplerCube u_skybox;
+      uniform mat4 u_viewDirectionProjectionInverse;
+      
+      varying vec4 v_position;
+      void main() {
+        vec4 t = u_viewDirectionProjectionInverse * v_position;
+        gl_FragColor = textureCube(u_skybox, normalize(t.xyz / t.w));
+      }
+  </script>
+
+    <canvas id="mycanvas" width="1000" height="650"></canvas>
+    <script src="Assignment8.js"></script>
+    <script src="my_lib.js"></script>
+    <script src="source/dummy.js"></script>
+    <script src="source/w.js"></script>
+    <p>rotate the view</p>
+    <input id="slider1" type="range" min="-100" max="100" />
+    <p>rotate your weapon</p>
+    <input id="slider2" type="range" min="-13" max="23" />
+    <p>Camera Control: W/S => -z/+z ; A/D => -x/+x ; E/Q => -y/+y</p>
+    <p>Press F to grap/put-back weapon</p>
+    <p id="z">z:</p>
+    <p>Four textures (base color, metallic, roughness, normal) are used on the training dummy</p>
+    <p>Special light is applied on the weapon</p>
+    <p>Dynamic environment mapping with framebuffer is implements on the moving cube</p>
+    <p>ATTRIBUTION:</p>
+    <p>The training dummy model and textures are found at https://sketchfab.com/3d-models/medieval-combat-dummy-0b3ab64360374a0e9ee3a5923c437995</p>
+    <p>The weapon model and texture are found at https://sketchfab.com/3d-models/death-weapon-8698b63abfae4114b3670790371a673c</p>
+    <p>The skybox texture is found at https://sketchfab.com/3d-models/free-skybox-basic-sky-b2a4fd1b92c248abaae31975c9ea79e2</p>
+    <p>Special thanks to CS559 and https://webglfundamentals.org/webgl/lessons/  where I really learned a lot :></p>
+    <p>All textures are hosted on github (including my p7 textures attributions)</p>
+  </body>
+</html>
